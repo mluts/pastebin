@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/julienschmidt/httprouter"
@@ -94,7 +93,7 @@ func NewServer(bind string, config Config) *Server {
 		bind:      bind,
 		config:    config,
 		router:    httprouter.New(),
-		store:     cache.New(5*time.Minute, 10*time.Minute),
+		store:     cache.New(cfg.expiry, cfg.expiry*2),
 		templates: templice.New(rice.MustFindBox("templates")),
 	}
 
