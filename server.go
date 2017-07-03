@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,8 +11,14 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/patrickmn/go-cache"
 	"github.com/renstrom/shortuuid"
+	"github.com/timewasted/go-accept-headers"
 	"go.iondynamics.net/templice"
 )
+
+var AcceptedTypes = []string{
+	"text/html",
+	"text/plain",
+}
 
 // Server ...
 type Server struct {
@@ -32,21 +39,56 @@ func (s *Server) render(w http.ResponseWriter, tmpl string, data interface{}) {
 // IndexHandler ...
 func (s *Server) IndexHandler() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		s.render(w, "index", nil)
+		accepts, err := accept.Negotiate(
+			r.Header.Get("Accept"), AcceptedTypes...,
+		)
+		if err != nil {
+			log.Printf("error negotiating: %s", err)
+			http.Error(w, "Internal Error", http.StatusInternalServerError)
+			return
+		}
+
+		switch accepts {
+		case "text/html":
+			s.render(w, "index", nil)
+		case "text/plain":
+		default:
+		}
 	}
 }
 
 // PasteHandler ...
 func (s *Server) PasteHandler() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		err := r.ParseForm()
+		var blob string
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Internal Error", http.StatusInternalServerError)
+			return
+		}
+		blob = string(body)
+
+		err = r.ParseForm()
 		if err != nil {
 			http.Error(w, "Internal Error", http.StatusInternalServerError)
 			return
 		}
 
+		if blob == "" {
+			blob = r.Form.Get("blob")
+		}
+
+		if blob == "" {
+			blob = r.URL.Query().Get("blob")
+		}
+
+		if blob == "" {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
 		uuid := shortuuid.NewWithNamespace(s.config.fqdn)
-		blob := r.Form.Get("blob")
 		s.store.Set(uuid, blob, cache.DefaultExpiration)
 
 		u, err := url.Parse(fmt.Sprintf("./%s", uuid))
@@ -60,6 +102,15 @@ func (s *Server) PasteHandler() httprouter.Handle {
 // ViewHandler ...
 func (s *Server) ViewHandler() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		accepts, err := accept.Negotiate(
+			r.Header.Get("Accept"), AcceptedTypes...,
+		)
+		if err != nil {
+			log.Printf("error negotiating: %s", err)
+			http.Error(w, "Internal Error", http.StatusInternalServerError)
+			return
+		}
+
 		uuid := p.ByName("uuid")
 		if uuid == "" {
 			http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -72,7 +123,14 @@ func (s *Server) ViewHandler() httprouter.Handle {
 			return
 		}
 
-		s.render(w, "view", struct{ Blob string }{Blob: blob.(string)})
+		switch accepts {
+		case "text/html":
+			s.render(w, "view", struct{ Blob string }{Blob: blob.(string)})
+		case "text/plain":
+			w.Write([]byte(blob.(string)))
+		default:
+			w.Write([]byte(blob.(string)))
+		}
 	}
 }
 
