@@ -5,9 +5,10 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/prologic/pastebin)](https://goreportcard.com/report/github.com/prologic/pastebin)
 [![Coverage](https://coveralls.io/repos/prologic/pastebin/badge.svg)](https://coveralls.io/r/prologic/pastebin)
 
-pastebin is a web app that allows you to create smart bookmarks, commands and aliases by pointing your web browser's default search engine at a running instance. Similar to bunny1 or yubnub.
-
-## Installation
+pastebin is a self-hosted pastebin web app that lets you create and share
+"ephemeral" data between devices and users. There is a configurable expiry
+(TTL) afterwhich the paste expires and is purged. There is also a handy
+CLI for interacting with the service in a easy way or you can also use curl!
 
 ### Source
 
@@ -16,6 +17,8 @@ $ go install github.com/prologic/pastebin/...
 ```
 
 ### OS X Homebrew
+
+**Coming**
 
 There is a formula provided that you can tap and install from
 [prologic/homebrew-pastebin](https://github.com/prologic/homebrew-pastebin):
@@ -37,12 +40,24 @@ much appreciated and highly welcome!
 Run pastebin:
 
 ```#!bash
-$ pastebin -bind 127.0.0.1:8000
+$ pastebin
 ```
 
-Set your browser's default pastebin engine to http://localhost:8000/?q=%s
+Create a paste:
 
-Then type `help` to view the main help page, `g foo bar` to perform a [Google](https://google.com) search for "foo bar" or `list` to list all available commands.
+```#!bash
+$ echo "Hello World" | pb
+http://localhost:8000/92sHUeGPfoFctazBxdEhae
+```
+
+Or use the Web UI: http://localhost:8000/
+
+Or curl:
+
+```#bash
+$ echo "hello World" | curl -q -L -d @- -o - http://localhost:8000/
+...
+```
 
 ## License
 
