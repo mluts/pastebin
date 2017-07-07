@@ -3,11 +3,14 @@
 all: dev
 
 dev: build
-	./pastebin -bind 127.0.0.1:8000
+	./pastebin
 
 build: clean
 	go get ./...
-	go build -o ./pastebin .
+	go build .
+
+test:
+	go test ./...
 
 clean:
-	rm -rf bin pastebin
+	rm -rf pastebin
