@@ -139,7 +139,7 @@ func (s *Server) PasteHandler() httprouter.Handle {
 		uuid := shortuuid.NewWithNamespace(s.config.fqdn)
 		s.store.Set(uuid, blob, cache.DefaultExpiration)
 
-		u, err := url.Parse(fmt.Sprintf("./view/%s", uuid))
+		u, err := url.Parse(fmt.Sprintf("./p/%s", uuid))
 		if err != nil {
 			http.Error(w, "Internal Error", http.StatusInternalServerError)
 		}
@@ -256,7 +256,7 @@ func (s *Server) initRoutes() {
 	s.router.GET("/", s.IndexHandler())
 	s.router.POST("/", s.PasteHandler())
 	s.router.GET("/download/:uuid", s.DownloadHandler())
-	s.router.GET("/view/:uuid", s.ViewHandler())
+	s.router.GET("/p/:uuid", s.ViewHandler())
 }
 
 // NewServer ...
