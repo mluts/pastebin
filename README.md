@@ -18,7 +18,7 @@ $ go install github.com/prologic/pastebin/...
 
 ### OS X Homebrew
 
-**Coming**
+**Coming soon**
 
 There is a formula provided that you can tap and install from
 [prologic/homebrew-pastebin](https://github.com/prologic/homebrew-pastebin):
@@ -59,6 +59,40 @@ $ echo "hello World" | curl -q -L -d @- -o - http://localhost:8000/
 ...
 ```
 
+There is also an included command line utility for convenience:
+
+```#!bash
+echo hello | pb
+```
+
+## Configuration
+
+When running the `pastebin` server there are a few default options you might
+want to tweak:
+
+```
+$ ./pastebin --help
+  ...
+  -expiry duration
+        expiry time for pastes (default 5m0s)
+  -fqdn string
+        FQDN for public access (default "localhost")
+```
+
+Setting a custom `-expiry` lets you change when pastes are automatically
+expired (*the purge time is 2x this value*). The ``-fqdn` option is used as
+a namespace for generating the UUID(s) for pastes, change this to be your
+domain name.
+
+The command-line utility by default talk to http://localhost:8000 which can be
+changed via the `-url` option or by creating a `$HOME/.pastebin.conf`
+configuration file with contents similar to:
+
+```
+$ cat ~/.pastebin.conf
+url=https://paste.mydomain.com/
+```
 ## License
+
 
 MIT
