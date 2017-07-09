@@ -3,10 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
 	// Logging
 	"github.com/unrolled/logger"
@@ -21,7 +24,6 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/renstrom/shortuuid"
 	"github.com/timewasted/go-accept-headers"
-	"go.iondynamics.net/templice"
 )
 
 // AcceptedTypes ...
@@ -63,7 +65,7 @@ type Server struct {
 	bind      string
 	config    Config
 	store     *cache.Cache
-	templates *templice.Template
+	templates *Templates
 	router    *httprouter.Router
 
 	// Logger
@@ -74,8 +76,13 @@ type Server struct {
 	stats    *stats.Stats
 }
 
-func (s *Server) render(w http.ResponseWriter, tmpl string, data interface{}) {
-	err := s.templates.ExecuteTemplate(w, tmpl+".html", data)
+func (s *Server) render(name string, w http.ResponseWriter, ctx interface{}) {
+	buf, err := s.templates.Exec(name, ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	_, err = buf.WriteTo(w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -97,7 +104,7 @@ func (s *Server) IndexHandler() httprouter.Handle {
 
 		switch accepts {
 		case "text/html":
-			s.render(w, "index", nil)
+			s.render("index", w, nil)
 		case "text/plain":
 		default:
 		}
@@ -109,23 +116,15 @@ func (s *Server) PasteHandler() httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		s.counters.Inc("n_paste")
 
-		var blob string
-
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Internal Error", http.StatusInternalServerError)
-			return
-		}
-		blob = string(body)
-
-		err = r.ParseForm()
-		if err != nil {
-			http.Error(w, "Internal Error", http.StatusInternalServerError)
-			return
-		}
+		blob := r.FormValue("blob")
 
 		if blob == "" {
-			blob = r.Form.Get("blob")
+			body, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "Internal Error", http.StatusInternalServerError)
+				return
+			}
+			blob = string(body)
 		}
 
 		if blob == "" {
@@ -145,6 +144,33 @@ func (s *Server) PasteHandler() httprouter.Handle {
 			http.Error(w, "Internal Error", http.StatusInternalServerError)
 		}
 		http.Redirect(w, r, r.URL.ResolveReference(u).String(), http.StatusFound)
+	}
+}
+
+// DownloadHandler ...
+func (s *Server) DownloadHandler() httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		s.counters.Inc("n_download")
+
+		uuid := p.ByName("uuid")
+		if uuid == "" {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		blob, ok := s.store.Get(uuid)
+		if !ok {
+			http.Error(w, "Not Found", http.StatusNotFound)
+			return
+		}
+
+		content := strings.NewReader(blob.(string))
+
+		w.Header().Set("Content-Disposition", "attachment; filename="+uuid)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", string(content.Size()))
+
+		http.ServeContent(w, r, uuid, time.Now(), content)
 	}
 }
 
@@ -176,7 +202,16 @@ func (s *Server) ViewHandler() httprouter.Handle {
 
 		switch accepts {
 		case "text/html":
-			s.render(w, "view", struct{ Blob string }{Blob: blob.(string)})
+			s.render(
+				"view", w,
+				struct {
+					Blob string
+					UUID string
+				}{
+					Blob: blob.(string),
+					UUID: uuid,
+				},
+			)
 		case "text/plain":
 			w.Write([]byte(blob.(string)))
 		default:
@@ -213,8 +248,14 @@ func (s *Server) initRoutes() {
 	s.router.Handler("GET", "/debug/metrics", exp.ExpHandler(s.counters.r))
 	s.router.GET("/debug/stats", s.StatsHandler())
 
+	s.router.ServeFiles(
+		"/css/*filepath",
+		rice.MustFindBox("static/css").HTTPBox(),
+	)
+
 	s.router.GET("/", s.IndexHandler())
 	s.router.POST("/", s.PasteHandler())
+	s.router.GET("/download/:uuid", s.DownloadHandler())
 	s.router.GET("/view/:uuid", s.ViewHandler())
 }
 
@@ -225,7 +266,7 @@ func NewServer(bind string, config Config) *Server {
 		config:    config,
 		router:    httprouter.New(),
 		store:     cache.New(cfg.expiry, cfg.expiry*2),
-		templates: templice.New(rice.MustFindBox("templates")),
+		templates: NewTemplates("base"),
 
 		// Logger
 		logger: logger.New(logger.Options{
@@ -239,10 +280,19 @@ func NewServer(bind string, config Config) *Server {
 		stats:    stats.New(),
 	}
 
-	err := server.templates.Load()
-	if err != nil {
-		log.Panicf("error loading templates: %s", err)
-	}
+	// Templates
+	box := rice.MustFindBox("templates")
+
+	indexTemplate := template.New("view")
+	template.Must(indexTemplate.Parse(box.MustString("index.html")))
+	template.Must(indexTemplate.Parse(box.MustString("base.html")))
+
+	viewTemplate := template.New("view")
+	template.Must(viewTemplate.Parse(box.MustString("view.html")))
+	template.Must(viewTemplate.Parse(box.MustString("base.html")))
+
+	server.templates.Add("index", indexTemplate)
+	server.templates.Add("view", viewTemplate)
 
 	server.initRoutes()
 

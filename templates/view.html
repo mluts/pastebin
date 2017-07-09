@@ -1,10 +1,30 @@
-<html>
-	<head>
-		<title>pastebin</title>
-	</head>
-	
-	<body>
-		<pre>{{.Blob}}</pre>
-	</body>
-
-</html>
+{{define "content"}}
+<pre class="code">
+  <code>{{.Blob}}</code>
+</pre>
+<section class="container">
+  <div class="columns">
+    <div class="column col-3">
+      <div class="dropdown">
+        <div class="btn-group">
+          <a class="btn btn-sm btn-primary" href="/download/{{.UUID}}">
+            <i class="icon icon-download"></i>
+            Download
+          </a>
+          <a class="btn btn-sm btn-primary dropdown-toggle" tabindex="0">
+            <i class="icon icon-caret"></i>
+          </a>
+          <ul class="menu">
+            <li class="menu-item">
+              <a href="#dropdowns">
+                <i class="icon icon-delete"></i>
+                Delete
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{{end}}

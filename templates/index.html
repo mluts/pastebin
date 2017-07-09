@@ -1,14 +1,17 @@
-<html>
-	<head>
-		<title>pastebin</title>
-	</head>
-	
-	<body>
-		<p>Enter your text here:</p>
-		<form method="POST" action="">
-			<textarea name="blob" cols=80 rows=24></textarea>
-			<input type="submit">
-		</form>
-	</body>
-
-</html>
+{{define "content"}}
+<section class="container">
+  <div class="columns">
+    <div class="column">
+      <form action="" method="POST">
+        <div class="form-group">
+          <label class="form-label" for="input-blob"></label>
+          <textarea class="form-input" id="input-blob" name="blob" placeholder="Enter content here..." rows="24"></textarea>
+        </div>
+        <div class="form-group">
+          <button class="btn btn-sm btn-primary" type="submit">Paste</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{{end}}
