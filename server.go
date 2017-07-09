@@ -283,7 +283,7 @@ func NewServer(bind string, config Config) *Server {
 	// Templates
 	box := rice.MustFindBox("templates")
 
-	indexTemplate := template.New("view")
+	indexTemplate := template.New("index")
 	template.Must(indexTemplate.Parse(box.MustString("index.html")))
 	template.Must(indexTemplate.Parse(box.MustString("base.html")))
 
